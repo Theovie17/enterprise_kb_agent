@@ -1,0 +1,64 @@
+name: kb-agent
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        HTTP_PROXY: http://host.docker.internal:7897
+        HTTPS_PROXY: http://host.docker.internal:7897
+    image: xingchen-kb-api:local
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      HF_ENDPOINT: https://hf-mirror.com
+      PYTHONUNBUFFERED: "1"
+      PYTHONIOENCODING: utf-8
+      HTTP_PROXY: http://host.docker.internal:7897
+      HTTPS_PROXY: http://host.docker.internal:7897
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./chunks.json:/app/chunks.json:ro
+      - hf-cache:/root/.cache/huggingface
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 180s
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    image: xingchen-kb-ui:local
+    depends_on:
+      api:
+        condition: service_healthy
+    command:
+      [
+        "streamlit",
+        "run",
+        "app_ui.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501",
+        "--server.headless=true",
+      ]
+    ports:
+      - "8501:8501"
+    environment:
+      API_URL: http://api:8000
+    restart: unless-stopped
+
+volumes:
+  hf-cache:

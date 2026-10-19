@@ -1,0 +1,18 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=utf-8 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN pip install --no-cache-dir streamlit requests \
+        -i https://pypi.tuna.tsinghua.edu.cn/simple \
+        --trusted-host pypi.tuna.tsinghua.edu.cn
+
+COPY app_ui.py .
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "app_ui.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]

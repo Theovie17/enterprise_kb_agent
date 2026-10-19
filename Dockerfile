@@ -1,0 +1,46 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=utf-8 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    TOKENIZERS_PARALLELISM=false \
+    CHROMA_TELEMETRY=false \
+    ANONYMIZED_TELEMETRY=False
+
+# CPU 版 torch 在 slim 镜像里需要 libgomp.so.1
+RUN rm -f /etc/apt/sources.list.d/* \
+    && . /etc/os-release \
+    && printf 'deb https://mirrors.tuna.tsinghua.edu.cn/debian/ %s main contrib non-free non-free-firmware\ndeb https://mirrors.tuna.tsinghua.edu.cn/debian/ %s-updates main contrib non-free non-free-firmware\ndeb https://mirrors.tuna.tsinghua.edu.cn/debian-security %s-security main contrib non-free non-free-firmware\n' \
+        "$VERSION_CODENAME" "$VERSION_CODENAME" "$VERSION_CODENAME" > /etc/apt/sources.list \
+    && printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99force-ipv4 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade pip==24.0 setuptools==69.5.1 wheel \
+        -i https://pypi.tuna.tsinghua.edu.cn/simple \
+        --trusted-host pypi.tuna.tsinghua.edu.cn
+
+RUN pip install torch==2.2.1 --index-url https://download.pytorch.org/whl/cpu
+
+RUN pip install --no-cache-dir \
+        langchain langchain-community langchain-openai langchain-chroma \
+        langchain-huggingface langchain-mcp-adapters langchain-deepseek \
+        -i https://pypi.tuna.tsinghua.edu.cn/simple \
+        --trusted-host pypi.tuna.tsinghua.edu.cn
+
+RUN pip install --no-cache-dir \
+        mcp fastapi uvicorn streamlit requests python-dotenv \
+        sentence-transformers chromadb pydantic langgraph pypdf docx2txt \
+        -i https://pypi.tuna.tsinghua.edu.cn/simple \
+        --trusted-host pypi.tuna.tsinghua.edu.cn
+
+COPY . .
+
+EXPOSE 8000 8501
+
+CMD ["python", "api_server.py"]
